@@ -34,6 +34,8 @@ for result in results:
     color_mask = np.zeros_like(cap, dtype=np.uint8)
     visualized_image = cap.copy()
     for i, ins in enumerate(result.masks.xy):
+        # color_mask = np.zeros_like(cap, dtype=np.uint8)
+        # visualized_image = cap.copy()
         # box = result.boxes.xyxy[i].numpy()
         # print("Class: {}".format(result.boxes.cls[i]))
         # print("Box: {}".format(box))
@@ -50,14 +52,90 @@ for result in results:
         max_y = np.max(points[:, 0])
         print("points: {}".format(points))
         centroid = np.mean(points, axis=0)[::-1]
-        color_mask = np.where(mask[:, :, np.newaxis], color[np.newaxis, np.newaxis, :], color_mask)
-        visualized_image = np.where(color_mask > 0, cv2.addWeighted(visualized_image, 2, color_mask, 0.4, 0), visualized_image)
+        # color_mask = np.where(mask[:, :, np.newaxis], color[np.newaxis, np.newaxis, :], color_mask)
+        # visualized_image = np.where(color_mask > 0, cv2.addWeighted(visualized_image, 2, color_mask, 0.4, 0), visualized_image)
         print("Mask: {}".format(mask.shape))
         print("Centroid xy: {}".format(centroid))
-        cv2.circle(visualized_image, (int(centroid[0]), int(centroid[1])), radius=10, color=(0, 0, 255), thickness=-1)
+        # cv2.circle(visualized_image, (int(centroid[0]), int(centroid[1])), radius=10, color=(0, 0, 255), thickness=-1)
         # x1, y1, x2, y2 = box
-        # cv2.rectangle(visualized_image, (min_x, min_y), (max_x, max_y), (0, 0, 255), 3)
-    
+        cv2.rectangle(visualized_image, (min_x, min_y), (max_x, max_y), (0, 0, 255), 3)
+
+        dist_x = max_x - min_x
+        dist_y = max_y - min_y
+
+        if dist_x > dist_y:
+            divide_by_x = True
+        else:
+            divide_by_x = False
+
+        if divide_by_x:
+            one_third_x = int(min_x + 1/3 * dist_x)
+            two_third_x = int(min_x + 2/3 * dist_x)
+            print("one_third_x: {}, two_third_x: {}, min_x: {}, max_x: {}".format(one_third_x, two_third_x, min_x, max_x))
+            mask_one_third = mask.copy()
+            mask_one_third[:, one_third_x:] = False
+            mask_one_two = mask.copy()
+            # mask_one_two[:, one_third_x:(two_third_x + 1)] = False
+            mask_one_two[: :one_third_x] = False
+            mask_one_two[:, two_third_x:] = False
+            mask_two_third = mask.copy()
+            mask_two_third[:, :two_third_x] = False
+            area_one_third = np.argwhere(mask_one_third == True).shape[0]
+            area_one_two = np.argwhere(mask_one_two == True).shape[0]
+            area_two_third = np.argwhere(mask_two_third == True).shape[0]
+            print(area_one_third, area_one_two, area_two_third)
+
+            max_ind = np.argmax([area_one_third, area_one_two, area_two_third])
+            if max_ind == 0:
+                max_mask = mask_one_third
+            elif max_ind == 1:
+                max_mask = mask_one_two
+            else:
+                max_mask = mask_two_third
+            print(max_ind)
+            # chosen_point = np.mean(np.argwhere(max_mask == True), axis=0)[::-1]
+
+        else:
+            one_third_y = int(min_y + 1/3 * dist_y)
+            two_third_y = int(min_y + 2/3 * dist_y)
+
+            mask_one_third = mask.copy()
+            mask_one_third[one_third_y:, :] = False
+            mask_one_two = mask.copy()
+            # mask_one_two[:, one_third_y:(two_third_y + 1)] = False
+            mask_one_two[:one_third_y + 1, :] = False
+            mask_one_two[two_third_y:, :] = False
+            mask_two_third = mask.copy()
+            mask_two_third[:two_third_y+1, :] = False
+            area_one_third = np.argwhere(mask_one_third == True).shape[0]
+            area_one_two = np.argwhere(mask_one_two == True).shape[0]
+            area_two_third = np.argwhere(mask_two_third == True).shape[0]
+
+            max_ind = np.argmax([area_one_third, area_one_two, area_two_third])
+            if max_ind == 0:
+                max_mask = mask_one_third
+            elif max_ind == 1:
+                max_mask = mask_one_two
+            else:
+                max_mask = mask_two_third
+
+        chosen_point = np.mean(np.argwhere(max_mask == True), axis=0)[::-1]
+        print("chosen_point: {}".format(chosen_point))
+        
+        # color = np.array([np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255)], dtype=np.uint8)
+        # color_mask = np.where(max_mask[:, :, np.newaxis], color[np.newaxis, np.newaxis, :], color_mask)
+        if divide_by_x:
+            color_mask = np.where(mask_one_third[:, :, np.newaxis], np.array([255, 0, 0], dtype=np.uint8)[np.newaxis, np.newaxis, :], color_mask)
+            color_mask = np.where(mask_one_two[:, :, np.newaxis], np.array([0, 255, 0], dtype=np.uint8)[np.newaxis, np.newaxis, :], color_mask)
+            color_mask = np.where(mask_two_third[:, :, np.newaxis], np.array([0, 0, 255], dtype=np.uint8)[np.newaxis, np.newaxis, :], color_mask)
+            # visualized_image = np.where(color_mask > 0, cv2.addWeighted(visualized_image, 2, color_mask, 0.4, 0), visualized_image)
+
+            cv2.circle(visualized_image, (int(chosen_point[0]), int(chosen_point[1])), radius=10, color=(0, 0, 255), thickness=-1)
+
+        # cv2.imshow("Anh", visualized_image)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
+    visualized_image = np.where(color_mask > 0, cv2.addWeighted(visualized_image, 2, color_mask, 0.6, 0), visualized_image)
     cv2.imwrite("Anh.jpg", visualized_image)
     # cv2.waitKey(0)
     # for ins in result.masks.data:
